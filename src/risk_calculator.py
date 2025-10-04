@@ -310,20 +310,19 @@ class RiskCalculator:
         return min(composite, 1.0)
     
     def _classify_risk_level(self, score: float) -> RiskLevel:
-        """Classify numeric score into risk level"""
-        if score >= 0.8:
+        """Classify numeric risk score into categorical risk level"""
+        if score >= 0.70:
             return RiskLevel.CRITICAL
-        elif score >= 0.6:
+        elif score >= 0.50:  # Lowered from 0.60 to catch more HIGH risk
             return RiskLevel.HIGH
-        elif score >= 0.4:
+        elif score >= 0.35:  # Lowered from 0.40
             return RiskLevel.MEDIUM
-        elif score >= 0.2:
+        elif score >= 0.20:
             return RiskLevel.LOW
         else:
             return RiskLevel.MINIMAL
     
     def _generate_reasoning(
-        self, 
         user: UserProfile, 
         alert: HealthAlert, 
         factors: RiskFactors
