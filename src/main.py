@@ -6,7 +6,7 @@ Main FastAPI application providing intelligent, personalized health risk assessm
 
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List
+from typing import List, Optional
 import time
 from datetime import datetime
 
@@ -18,6 +18,7 @@ from src.models import (
 from src.risk_calculator import risk_calculator
 from src.utils.clickhouse_client import db_client
 from src.config import settings
+from src.services.structify_service import structify_service
 
 
 # Initialize FastAPI app
@@ -206,11 +207,14 @@ async def personalize_risk(request: PersonalizationRequest):
     # Get user profile
     user = db_client.get_user(request.user_id)
     
+    # DEMO FALLBACK: Use mock users if DB user not found
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"User {request.user_id} not found"
-        )
+        user = _get_mock_user(request.user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User {request.user_id} not found"
+            )
     
     try:
         # CORE INTELLIGENCE: Calculate personalized risk
@@ -238,6 +242,44 @@ async def personalize_risk(request: PersonalizationRequest):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Risk calculation failed: {str(e)}"
+        )
+
+
+@app.get("/api/v1/alerts/scrape", response_model=List[HealthAlert], tags=["Alerts"])
+async def scrape_latest_alerts(
+    disease: Optional[str] = None,
+    limit: int = 10
+):
+    """
+    **NEW** - Scrape latest health alerts from WHO using Structify
+    
+    This demonstrates autonomous data gathering - the system actively pulls
+    real-world disease outbreak information instead of waiting for manual input.
+    
+    Args:
+        disease: Optional filter for specific disease (e.g., "dengue", "covid", "malaria")
+        limit: Maximum number of alerts to return (default 10)
+        
+    Returns:
+        List of health alerts scraped from WHO
+        
+    ## For Demo:
+    - Shows autonomous monitoring capability
+    - Real-time WHO data integration
+    - Structify AI for intelligent scraping
+    
+    ## Example:
+    - GET /api/v1/alerts/scrape
+    - GET /api/v1/alerts/scrape?disease=dengue
+    - GET /api/v1/alerts/scrape?limit=5
+    """
+    try:
+        alerts = await structify_service.scrape_who_alerts(disease=disease)
+        return alerts[:limit]
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Scraping failed: {str(e)}"
         )
 
 
