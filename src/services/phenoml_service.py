@@ -10,36 +10,82 @@ class PhenoMLService:
     
     def __init__(self):
         self.base_url = settings.phenoml_base_url
-        self.email = settings.phenoml_email
-        self.password = settings.phenoml_password
-        self._token: Optional[str] = None
+        self.api_token = settings.phenoml_api_token
+    
+    async def explain_medical_codes(self, disease_name: str, icd10_code: str, snomed_code: str) -> Dict[str, Any]:
+        """
+        Convert medical codes to patient-friendly explanations
         
-    async def _get_auth_token(self) -> str:
-        """Get authentication token from PhenoML"""
-        if self._token:
-            return self._token
+        Args:
+            disease_name: Name of the disease
+            icd10_code: ICD-10 code
+            snomed_code: SNOMED code
             
-        try:
-            async with httpx.AsyncClient() as client:
-                # PhenoML uses Basic Auth to get Bearer token
-                auth = (self.email, self.password)
-                response = await client.post(
-                    f"{self.base_url}/auth/token",
-                    auth=auth,
-                    timeout=10.0
-                )
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    self._token = data.get("access_token")
-                    return self._token
-                else:
-                    print(f"PhenoML auth failed: {response.status_code}")
-                    return None
-                    
-        except Exception as e:
-            print(f"PhenoML auth error: {e}")
-            return None
+        Returns:
+            Plain language explanation with symptoms, treatment, prevention
+        """
+        # Generate patient-friendly explanation
+        explanation = {
+            "disease": disease_name,
+            "what_it_is": self._get_disease_explanation(disease_name),
+            "common_symptoms": self._get_symptoms(disease_name),
+            "how_it_spreads": self._get_transmission(disease_name),
+            "prevention_tips": self._get_prevention(disease_name),
+            "when_to_seek_care": self._get_care_recommendations(disease_name),
+            "medical_codes": {
+                "icd10": icd10_code,
+                "snomed": snomed_code
+            }
+        }
+        return explanation
+    
+    def _get_disease_explanation(self, disease: str) -> str:
+        """Plain language disease explanation"""
+        explanations = {
+            "dengue": "Dengue is a viral infection spread by mosquitoes. It causes flu-like symptoms and can be serious.",
+            "malaria": "Malaria is a life-threatening disease spread by infected mosquitoes. It causes fever and flu-like illness.",
+            "marburg": "Marburg virus disease is a rare but severe hemorrhagic fever that affects humans and other primates.",
+            "mpox": "Mpox (monkeypox) is a viral disease that causes a rash and flu-like symptoms.",
+            "avian influenza": "Avian influenza (bird flu) is a virus that primarily affects birds but can occasionally infect humans."
+        }
+        return explanations.get(disease.lower(), f"{disease} is an infectious disease requiring medical attention.")
+    
+    def _get_symptoms(self, disease: str) -> list:
+        """Common symptoms list"""
+        symptoms_map = {
+            "dengue": ["High fever", "Severe headache", "Pain behind eyes", "Joint and muscle pain", "Rash", "Mild bleeding"],
+            "malaria": ["Fever and chills", "Headache", "Nausea and vomiting", "Muscle pain", "Fatigue"],
+            "marburg": ["High fever", "Severe headache", "Muscle aches", "Bleeding or bruising", "Confusion"],
+            "mpox": ["Rash", "Fever", "Swollen lymph nodes", "Headache", "Muscle aches"],
+            "avian influenza": ["Fever", "Cough", "Sore throat", "Muscle aches", "Difficulty breathing"]
+        }
+        return symptoms_map.get(disease.lower(), ["Fever", "Fatigue", "Consult a doctor for specific symptoms"])
+    
+    def _get_transmission(self, disease: str) -> str:
+        """How disease spreads"""
+        transmission_map = {
+            "dengue": "Spread by mosquito bites, particularly Aedes mosquitoes. Cannot spread person-to-person.",
+            "malaria": "Transmitted through bites of infected Anopheles mosquitoes.",
+            "marburg": "Spreads through contact with infected bodily fluids or contaminated materials.",
+            "mpox": "Spreads through close contact with infected person, animals, or contaminated materials.",
+            "avian influenza": "Mainly spreads from infected birds. Human-to-human transmission is rare."
+        }
+        return transmission_map.get(disease.lower(), "Consult health authorities for transmission information.")
+    
+    def _get_prevention(self, disease: str) -> list:
+        """Prevention tips"""
+        prevention_map = {
+            "dengue": ["Use mosquito repellent", "Wear long sleeves and pants", "Use mosquito nets", "Eliminate standing water"],
+            "malaria": ["Take antimalarial medication if traveling", "Use insecticide-treated bed nets", "Apply mosquito repellent"],
+            "marburg": ["Avoid contact with infected persons", "Use protective equipment", "Practice good hygiene"],
+            "mpox": ["Avoid contact with infected people or animals", "Practice good hand hygiene", "Avoid sharing personal items"],
+            "avian influenza": ["Avoid contact with sick or dead birds", "Cook poultry thoroughly", "Practice good hand hygiene"]
+        }
+        return prevention_map.get(disease.lower(), ["Follow local health authority guidelines", "Practice good hygiene"])
+    
+    def _get_care_recommendations(self, disease: str) -> str:
+        """When to seek medical care"""
+        return "Seek immediate medical attention if you experience severe symptoms or if symptoms worsen. Early treatment is important."
     
     async def enrich_disease(self, disease_name: str, description: str = "") -> Dict[str, Any]:
         """
@@ -53,9 +99,9 @@ class PhenoMLService:
             Dictionary with SNOMED, ICD-10 codes and FHIR data
         """
         try:
-            # Get auth token
-            token = await self._get_auth_token()
-            if not token:
+            # Check if token is available
+            if not self.api_token:
+                print("PhenoML token not configured, using fallback")
                 return self._get_fallback_codes(disease_name)
             
             # Create text for analysis
@@ -65,29 +111,31 @@ class PhenoMLService:
                 response = await client.post(
                     f"{self.base_url}/lang2fhir/create",
                     headers={
-                        "Authorization": f"Bearer {token}",
+                        "Authorization": f"Bearer {self.api_token}",
+                        "Accept": "application/json",
                         "Content-Type": "application/json"
                     },
                     json={
-                        "text": text,
-                        "resource_type": "condition-encounter-diagnosis",
-                        "version": "R4"
+                        "version": "R4",
+                        "resource": "auto",
+                        "text": text
                     },
                     timeout=30.0
                 )
                 
                 if response.status_code == 200:
                     fhir_data = response.json()
-                    return self._parse_fhir_response(fhir_data)
+                    print(f"✅ PhenoML enrichment successful for {disease_name}")
+                    return self._parse_fhir_response(fhir_data, disease_name)
                 else:
-                    print(f"PhenoML API error: {response.status_code}")
+                    print(f"PhenoML API error: {response.status_code} - {response.text}")
                     return self._get_fallback_codes(disease_name)
                     
         except Exception as e:
             print(f"PhenoML enrichment error: {e}")
             return self._get_fallback_codes(disease_name)
     
-    def _parse_fhir_response(self, fhir_data: Dict[str, Any]) -> Dict[str, Any]:
+    def _parse_fhir_response(self, fhir_data: Dict[str, Any], disease_name: str) -> Dict[str, Any]:
         """Parse FHIR response to extract medical codes"""
         result = {
             "snomed_code": None,
@@ -98,10 +146,16 @@ class PhenoMLService:
         }
         
         try:
-            # Navigate FHIR structure: Condition → code → coding
-            condition = fhir_data.get("Condition", {})
-            code = condition.get("code", {})
-            coding_list = code.get("coding", [])
+            # PhenoML response structure
+            if "code" in fhir_data and "coding" in fhir_data["code"]:
+                coding_list = fhir_data["code"]["coding"]
+            elif "Condition" in fhir_data:
+                condition = fhir_data.get("Condition", {})
+                code = condition.get("code", {})
+                coding_list = code.get("coding", [])
+            else:
+                # Try direct access
+                coding_list = fhir_data.get("coding", [])
             
             # Extract SNOMED and ICD-10 codes
             for coding in coding_list:
@@ -116,7 +170,9 @@ class PhenoMLService:
                     result["icd10_display"] = coding.get("display")
             
         except Exception as e:
-            print(f"Error parsing FHIR: {e}")
+            print(f"Error parsing FHIR for {disease_name}: {e}")
+            # Fall back to coded response
+            return self._get_fallback_codes(disease_name)
         
         return result
     

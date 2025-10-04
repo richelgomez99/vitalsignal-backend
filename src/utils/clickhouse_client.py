@@ -1,6 +1,7 @@
 """ClickHouse database client"""
 
 import json
+import base64
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 import clickhouse_connect
@@ -47,6 +48,13 @@ class ClickHouseClient:
     def create_user(self, user: UserProfile) -> bool:
         """Create a new user"""
         try:
+            # Convert datetime objects to ISO strings for JSON serialization
+            def serialize_for_json(obj):
+                from datetime import datetime
+                if isinstance(obj, datetime):
+                    return obj.isoformat()
+                return obj
+            
             self.client.insert('users', [[
                 user.user_id,
                 user.email,
@@ -55,11 +63,11 @@ class ClickHouseClient:
                 user.location,
                 user.latitude,
                 user.longitude,
-                json.dumps([c.dict() for c in user.health_conditions]),
-                json.dumps([m.dict() for m in user.medications]),
+                json.dumps([c.dict() for c in user.health_conditions], default=serialize_for_json),
+                json.dumps([m.dict() for m in user.medications], default=serialize_for_json),
                 json.dumps(user.allergies),
                 json.dumps([f.dict() for f in user.family_members]),
-                json.dumps([t.dict() for t in user.travel_plans]),
+                json.dumps([t.dict() for t in user.travel_plans], default=serialize_for_json),
                 json.dumps(user.preferences.dict()),
                 json.dumps(user.learned_weights),
                 user.created_at,
@@ -267,6 +275,53 @@ class ClickHouseClient:
             ]])
         except Exception as e:
             print(f"Error logging API call: {e}")
+    
+    # Image storage methods
+    def store_image(self, image_id: str, image_data: bytes, disease: str, prompt: str) -> bool:
+        """Store generated image in ClickHouse"""
+        try:
+            # Create table if not exists
+            self.client.command("""
+                CREATE TABLE IF NOT EXISTS generated_images (
+                    image_id String,
+                    disease String,
+                    prompt String,
+                    image_data String,
+                    created_at DateTime DEFAULT now()
+                ) ENGINE = MergeTree()
+                ORDER BY created_at
+            """)
+            
+            # Store image as base64
+            image_base64 = base64.b64encode(image_data).decode('utf-8')
+            
+            self.client.insert('generated_images', [[
+                image_id,
+                disease,
+                prompt,
+                image_base64,
+                datetime.utcnow()
+            ]])
+            return True
+        except Exception as e:
+            print(f"Error storing image: {e}")
+            return False
+    
+    def get_image(self, image_id: str) -> Optional[bytes]:
+        """Retrieve image from ClickHouse"""
+        try:
+            result = self.client.query(
+                "SELECT image_data FROM generated_images WHERE image_id = %(image_id)s LIMIT 1",
+                parameters={"image_id": image_id}
+            )
+            
+            if result.row_count > 0:
+                image_base64 = result.first_row[0]
+                return base64.b64decode(image_base64)
+            return None
+        except Exception as e:
+            print(f"Error retrieving image: {e}")
+            return None
 
 
 # Global instance

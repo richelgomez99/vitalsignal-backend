@@ -69,10 +69,22 @@ class TravelPlan(BaseModel):
 class UserPreferences(BaseModel):
     """User notification preferences"""
     risk_tolerance: str = "moderate"  # low, moderate, high
-    notification_threshold: RiskLevel = RiskLevel.MEDIUM
     preferred_language: str = "en"
     wants_images: bool = True
     wants_translations: bool = False
+
+
+class EmailNotificationRequest(BaseModel):
+    """Request to send email notification"""
+    to_email: EmailStr
+    user_name: str
+    disease_name: str
+    location: str
+    risk_level: str
+    risk_score: float
+    reasoning: List[str]
+    image_url: Optional[str] = None
+    family_report: Optional[str] = None  # Translated family-shareable report
 
 
 class UserProfile(BaseModel):
@@ -81,7 +93,7 @@ class UserProfile(BaseModel):
     email: EmailStr
     name: str
     age: int
-    location: str  # City, Country
+    location: str
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     

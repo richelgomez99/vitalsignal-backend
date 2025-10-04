@@ -38,20 +38,11 @@ env/
 .DS_Store
 Thumbs.db
 
-# Documentation - EXCLUDE most .md files from git
-# Keep only these critical ones:
-!plan.md
-!tasks.md
-!README.md
-
-# Block all other markdown files
+# Documentation
+# Exclude all planning/internal docs - keep only README
+docs/
 *.md
-AIRIA_*.md
-NGROK_*.md
-PHASE*.md
-full_project_*.md
-PROGRESS.md
-DEMO_*.md
+!README.md
 
 # Logs
 *.log
