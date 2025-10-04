@@ -8,28 +8,25 @@
 
 ## Prerequisites
 
-### ✅ Before You Start
+### ✅ Current Status - READY!
 
-1. **Backend running:**
-   ```bash
-   cd /Users/richelgomez/Documents/hackathon/vitalsignal-backend
-   uvicorn src.main:app --reload --port 8000
-   ```
+1. **Backend running:** ✅
+   - FastAPI server: http://localhost:8000
+   - Status: Active
 
-2. **ngrok tunnel active:**
-   ```bash
-   ngrok http 8000
-   ```
+2. **ngrok tunnel active:** ✅
+   - Public URL: `https://chelsey-ideographical-emelia.ngrok-free.dev`
+   - Dashboard: http://localhost:4040
 
-3. **Copy your ngrok URL:** `https://abc123.ngrok.io`
+3. **Your ngrok URL:** `https://chelsey-ideographical-emelia.ngrok-free.dev`
 
 4. **Test endpoints manually:**
    ```bash
    # Test Get Users
-   curl https://YOUR-NGROK-URL.ngrok.io/api/v1/users
+   curl https://chelsey-ideographical-emelia.ngrok-free.dev/api/v1/users
    
    # Test Personalize
-   curl -X POST https://YOUR-NGROK-URL.ngrok.io/api/v1/personalize \
+   curl -X POST https://chelsey-ideographical-emelia.ngrok-free.dev/api/v1/personalize \
      -H "Content-Type: application/json" \
      -d '{
        "user_id": "demo_maria",
@@ -92,10 +89,8 @@ Select dropdown: **GET**
 
 URL:
 ```
-https://YOUR-NGROK-URL.ngrok.io/api/v1/users
+https://chelsey-ideographical-emelia.ngrok-free.dev/api/v1/users
 ```
-
-**Replace `YOUR-NGROK-URL` with your actual ngrok URL**
 
 #### **Headers**
 
@@ -176,7 +171,7 @@ Select dropdown: **POST**
 
 URL:
 ```
-https://YOUR-NGROK-URL.ngrok.io/api/v1/personalize
+https://chelsey-ideographical-emelia.ngrok-free.dev/api/v1/personalize
 ```
 
 #### **Headers**
@@ -473,12 +468,13 @@ For our demo, we use **None** because our API doesn't require authentication.
 
 ### Your URLs
 ```
-API Base: https://YOUR-NGROK-URL.ngrok.io
+ngrok Public: https://chelsey-ideographical-emelia.ngrok-free.dev
 
-Tool 1 Endpoint: /api/v1/users (GET)
-Tool 2 Endpoint: /api/v1/personalize (POST)
+Tool 1 Full URL: https://chelsey-ideographical-emelia.ngrok-free.dev/api/v1/users (GET)
+Tool 2 Full URL: https://chelsey-ideographical-emelia.ngrok-free.dev/api/v1/personalize (POST)
 
-Local Test: http://localhost:8000/docs
+Local API Docs: http://localhost:8000/docs
+ngrok Dashboard: http://localhost:4040
 ```
 
 ### Variable Syntax

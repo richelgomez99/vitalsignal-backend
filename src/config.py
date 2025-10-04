@@ -30,11 +30,14 @@ class Settings(BaseSettings):
     sendgrid_from_email: str
     
     # Airia Integration (optional)
+    airia_api_key: Optional[str] = None
     airia_webhook_secret: Optional[str] = None
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
+    model_config = {
+        "env_file": ".env",
+        "case_sensitive": False,
+        "extra": "ignore",  # Allow extra fields in .env
+    }
 
 
 # Global settings instance
