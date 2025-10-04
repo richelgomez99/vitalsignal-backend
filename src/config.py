@@ -23,7 +23,10 @@ class Settings(BaseSettings):
     
     # External APIs
     structify_api_key: str
-    phenoml_auth_basic: str
+    phenoml_email: Optional[str] = None
+    phenoml_password: Optional[str] = None
+    phenoml_base_url: str = "https://experiment.app.pheno.ml"
+    phenoml_auth_basic: Optional[str] = None
     deepl_api_key: str
     freepik_api_key: str
     sendgrid_api_key: str

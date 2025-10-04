@@ -10,6 +10,7 @@ from typing import List, Optional
 import time
 from datetime import datetime
 
+from pydantic import BaseModel
 from src.models import (
     UserProfile, UserCreate, HealthAlert, PersonalizationRequest,
     PersonalizationResponse, RiskScore, FeedbackRequest, FeedbackEvent,
@@ -19,6 +20,7 @@ from src.risk_calculator import risk_calculator
 from src.utils.clickhouse_client import db_client
 from src.config import settings
 from src.services.structify_service import structify_service
+from src.services.phenoml_service import phenoml_service
 
 
 # Initialize FastAPI app
@@ -280,6 +282,49 @@ async def scrape_latest_alerts(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Scraping failed: {str(e)}"
+        )
+
+
+class MedicalEnrichmentRequest(BaseModel):
+    """Request to enrich disease with medical codes"""
+    disease_name: str
+    description: Optional[str] = ""
+
+
+@app.post("/api/v1/enrich-medical", tags=["Medical"])
+async def enrich_with_medical_codes(request: MedicalEnrichmentRequest):
+    """
+    Enrich disease with FHIR/SNOMED/ICD-10 medical codes using PhenoML
+    
+    Args:
+        request: Disease name and optional description
+        
+    Returns:
+        Medical codes and FHIR data
+        
+    ## For Demo:
+    - Shows medical intelligence
+    - Standardized medical coding
+    - FHIR interoperability
+    
+    ## Example:
+    ```json
+    {
+      "disease_name": "dengue",
+      "description": "fever and rash"
+    }
+    ```
+    """
+    try:
+        enriched_data = await phenoml_service.enrich_disease(
+            request.disease_name, 
+            request.description
+        )
+        return enriched_data
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Medical enrichment failed: {str(e)}"
         )
 
 

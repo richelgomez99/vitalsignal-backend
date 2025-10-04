@@ -1,12 +1,14 @@
 # VitalSignal Project Plan
 
-**Current Time:** ~4.5 hours remaining until 4:30 PM submission
+**Project:** Personal Health Guardian AI Agent
+**Hackathon:** Airia AI Agents Competition
+**Status:** Phase 2 - Tool Integration (4 of 7 tools completed)
+**Time Remaining:** ~3.5 hours until 4:30 PM deadline
 **Demo:** 3-minute live presentation
 
 ---
 
 ## Timeline Breakdown
-
 ### Phase 1: Core API Development (90 min) - **CRITICAL PATH**
 **Goal:** Working FastAPI server with personalization logic
 

@@ -2,7 +2,8 @@
 
 import httpx
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
+import re
 from src.config import settings
 from src.models import HealthAlert, DiseaseSeverity
 
@@ -13,69 +14,73 @@ class StructifyService:
     def __init__(self):
         self.api_key = settings.structify_api_key
         self.base_url = "https://api.structify.ai/v1"
+        # Your Structify workflow ID
+        self.workflow_id = "scrape_health_sources_for_vitalsignal"
         
     async def scrape_who_alerts(self, disease: Optional[str] = None) -> List[HealthAlert]:
         """
-        Scrape latest alerts from WHO
+        Get latest health alerts from Structify workflow
         
         Args:
             disease: Optional filter for specific disease
             
         Returns:
-            List of health alerts
+            List of health alerts from WHO, CDC, and news sources
         """
         try:
-            async with httpx.AsyncClient() as client:
-                # Structify call to scrape WHO disease outbreak news
-                response = await client.post(
-                    f"{self.base_url}/extract",
+            # Call Structify workflow to get latest scraped data
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                # Get latest workflow run results
+                response = await client.get(
+                    f"{self.base_url}/workflows/{self.workflow_id}/latest",
                     headers={
                         "Authorization": f"Bearer {self.api_key}",
                         "Content-Type": "application/json"
-                    },
-                    json={
-                        "url": "https://www.who.int/emergencies/disease-outbreak-news",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "alerts": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "object",
-                                        "properties": {
-                                            "title": {"type": "string"},
-                                            "disease": {"type": "string"},
-                                            "location": {"type": "string"},
-                                            "description": {"type": "string"},
-                                            "date": {"type": "string"}
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    timeout=30.0
+                    }
                 )
                 
                 if response.status_code != 200:
-                    print(f"Structify API error: {response.status_code}")
+                    print(f"Structify workflow fetch failed: {response.status_code}")
                     return self._get_fallback_alerts()
                 
                 data = response.json()
-                alerts = []
                 
-                for item in data.get("alerts", [])[:10]:  # Limit to 10 most recent
+                # Parse workflow output (should be array of alert objects)
+                alerts = []
+                workflow_results = data.get("results", [])
+                
+                if not workflow_results:
+                    print("No results from Structify workflow, using fallback")
+                    return self._get_fallback_alerts()
+                
+                for item in workflow_results:
                     try:
+                        # Extract fields from Structify output
+                        title = item.get("title") or "Health Alert"
+                        description = item.get("description") or "No description available"
+                        disease_name = item.get("disease") or "unknown"
+                        location = item.get("location") or "Global"
+                        source = item.get("source") or "WHO"
+                        url = item.get("url") or ""
+                        date_str = item.get("date_published")
+                        
+                        # Parse date
+                        published_at = self._parse_date(date_str) if date_str else datetime.utcnow()
+                        
+                        # Map severity
+                        severity = self._map_severity(item.get("severity", "MEDIUM"))
+                        
+                        # Create alert
                         alert = HealthAlert(
-                            alert_id=f"who_{item['title'][:20].replace(' ', '_').lower()}_{int(datetime.utcnow().timestamp())}",
-                            title=item["title"],
-                            description=item.get("description", ""),
-                            disease=item.get("disease", "unknown").lower(),
-                            location=item.get("location", "Global"),
-                            severity=DiseaseSeverity.OUTBREAK,  # Default
-                            source="WHO",
-                            source_url="https://www.who.int/emergencies/disease-outbreak-news",
-                            published_at=datetime.utcnow()
+                            alert_id=f"structify_{abs(hash(title + location))}",
+                            title=title,
+                            description=description,
+                            disease=disease_name.lower(),
+                            location=location,
+                            severity=severity,
+                            source=source,
+                            source_url=url,
+                            published_at=published_at
                         )
                         
                         # Filter by disease if specified
@@ -83,15 +88,67 @@ class StructifyService:
                             continue
                             
                         alerts.append(alert)
+                        
                     except Exception as e:
-                        print(f"Error parsing alert: {e}")
+                        print(f"Error parsing Structify alert: {e}")
                         continue
                 
-                return alerts if alerts else self._get_fallback_alerts()
+                if alerts:
+                    print(f"✅ Retrieved {len(alerts)} alerts from Structify workflow")
+                    return alerts
+                else:
+                    return self._get_fallback_alerts()
                 
         except Exception as e:
-            print(f"Structify scraping failed: {e}")
+            print(f"Structify workflow error: {e}")
             return self._get_fallback_alerts()
+    
+    def _parse_date(self, date_str: str) -> datetime:
+        """Parse various date formats including relative dates"""
+        if not date_str:
+            return datetime.utcnow()
+        
+        # Handle relative dates like "7 hours ago", "2 days ago"
+        relative_pattern = r'(\d+)\s+(hour|day|week)s?\s+ago'
+        match = re.search(relative_pattern, date_str, re.IGNORECASE)
+        if match:
+            amount = int(match.group(1))
+            unit = match.group(2).lower()
+            
+            if unit == 'hour':
+                return datetime.utcnow() - timedelta(hours=amount)
+            elif unit == 'day':
+                return datetime.utcnow() - timedelta(days=amount)
+            elif unit == 'week':
+                return datetime.utcnow() - timedelta(weeks=amount)
+        
+        # Try standard formats
+        formats = [
+            "%Y-%m-%d",
+            "%m/%d/%Y",
+            "%B %d, %Y",
+            "%d %B %Y",
+            "%Y-%m-%d %H:%M:%S"
+        ]
+        
+        for fmt in formats:
+            try:
+                return datetime.strptime(date_str, fmt)
+            except ValueError:
+                continue
+        
+        # If all else fails, return current time
+        return datetime.utcnow()
+    
+    def _map_severity(self, severity_str: str) -> DiseaseSeverity:
+        """Map severity string to DiseaseSeverity enum"""
+        severity_map = {
+            "CRITICAL": DiseaseSeverity.PANDEMIC,
+            "HIGH": DiseaseSeverity.EPIDEMIC,
+            "MEDIUM": DiseaseSeverity.OUTBREAK,
+            "LOW": DiseaseSeverity.CLUSTER,
+        }
+        return severity_map.get(severity_str.upper(), DiseaseSeverity.OUTBREAK)
     
     def _get_fallback_alerts(self) -> List[HealthAlert]:
         """Return mock alerts if scraping fails"""
