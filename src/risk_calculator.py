@@ -323,6 +323,7 @@ class RiskCalculator:
             return RiskLevel.MINIMAL
     
     def _generate_reasoning(
+        self,
         user: UserProfile, 
         alert: HealthAlert, 
         factors: RiskFactors

@@ -39,7 +39,6 @@ env/
 Thumbs.db
 
 # Documentation
-# Exclude all planning/internal docs - keep only README
 docs/
 *.md
 !README.md
