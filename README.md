@@ -364,7 +364,7 @@ MIT License - Hackathon Project 2024
 
 ## 🙏 Acknowledgments
 
-Built for the **Airia + 7 Sponsor Tools Hackathon**
+Built for the **NYC AI Agents by Creative Corner Hackathon**
 
 **Sponsors:**
 - Airia - Multi-agent orchestration platform
@@ -373,4 +373,3 @@ Built for the **Airia + 7 Sponsor Tools Hackathon**
 - PhenoML - Healthcare AI platform
 - DeepL - Translation API
 - Freepik - AI image generation
-- SendGrid - Email delivery platform
