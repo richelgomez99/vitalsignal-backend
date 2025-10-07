@@ -290,7 +290,7 @@ curl -X POST "http://localhost:8000/api/v1/send-notification" \
 ✅ **Medical standards** - FHIR/SNOMED/ICD-10 integration via PhenoML  
 ✅ **Real-world data** - Live WHO/CDC alerts via Structify
 
-### Tool Usage (25 points - **All 7 Sponsors!**)
+### Tool Usage 
 | Tool | Usage | Impact |
 |------|-------|--------|
 | **Airia** | Multi-node orchestration | Autonomous decision workflow |
@@ -352,7 +352,6 @@ ngrok http 8000
 
 **Richel Gomez**  
 Email: richel.gomez@pursuit.org  
-GitHub: [@richelgomez](https://github.com/richelgomez)
 
 ---
 
